@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, AtSign, Check, Mail, Menu, Sparkles, X } from 'lucide-react';
+import * as THREE from 'three';
 import './styles.css';
 import { supabase } from './lib/supabase';
 
@@ -52,10 +53,249 @@ function App() {
   </main>;
 }
 
+function HeroCanvas() {
+  const mountRef = useRef(null);
+  const mouseRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const el = mountRef.current;
+    if (!el) return;
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#d38d15');
+    scene.fog = new THREE.FogExp2('#b87314', 0.045);
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.1, 100);
+    camera.position.set(0, 0, 7);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(el.clientWidth, el.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    el.appendChild(renderer.domElement);
+
+    // Lights
+    const hemi = new THREE.HemisphereLight('#ffd580', '#3d1a08', 0.9);
+    scene.add(hemi);
+
+    const sun = new THREE.DirectionalLight('#ffe0a0', 2.5);
+    sun.position.set(4, 6, 3);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    scene.add(sun);
+
+    const fill = new THREE.PointLight('#6030a0', 0.6, 18);
+    fill.position.set(-5, -3, 2);
+    scene.add(fill);
+
+    const rimLight = new THREE.PointLight('#ff9933', 1.1, 12);
+    rimLight.position.set(3, -2, -4);
+    scene.add(rimLight);
+
+    // Background large ellipsoid glow
+    const bgGeo = new THREE.SphereGeometry(3.8, 32, 32);
+    const bgMat = new THREE.MeshStandardMaterial({
+      color: '#f7cf50',
+      emissive: '#e8a800',
+      emissiveIntensity: 0.18,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.BackSide,
+    });
+    const bgSphere = new THREE.Mesh(bgGeo, bgMat);
+    bgSphere.position.set(0.6, 0.5, -1);
+    scene.add(bgSphere);
+
+    // Main torus knot — the hero sculpture
+    const knotGeo = new THREE.TorusKnotGeometry(1.05, 0.34, 200, 24, 2, 3);
+    const knotMat = new THREE.MeshStandardMaterial({
+      color: '#c8872a',
+      metalness: 0.72,
+      roughness: 0.28,
+      emissive: '#5c2e00',
+      emissiveIntensity: 0.15,
+    });
+    const knot = new THREE.Mesh(knotGeo, knotMat);
+    knot.castShadow = true;
+    knot.receiveShadow = true;
+    scene.add(knot);
+
+    // Wireframe aura around knot
+    const auraGeo = new THREE.TorusKnotGeometry(1.22, 0.37, 120, 18, 2, 3);
+    const auraMat = new THREE.MeshBasicMaterial({
+      color: '#f4b71a',
+      wireframe: true,
+      transparent: true,
+      opacity: 0.08,
+    });
+    const aura = new THREE.Mesh(auraGeo, auraMat);
+    scene.add(aura);
+
+    // Tilted arch ring (torus)
+    const archGeo = new THREE.TorusGeometry(2.1, 0.07, 20, 100);
+    const archMat = new THREE.MeshStandardMaterial({
+      color: '#d4a857',
+      metalness: 0.9,
+      roughness: 0.15,
+      emissive: '#a06800',
+      emissiveIntensity: 0.1,
+    });
+    const arch = new THREE.Mesh(archGeo, archMat);
+    arch.rotation.x = Math.PI / 4;
+    arch.rotation.y = Math.PI / 6;
+    scene.add(arch);
+
+    // Second thinner ring
+    const ring2Geo = new THREE.TorusGeometry(2.55, 0.035, 16, 100);
+    const ring2Mat = new THREE.MeshBasicMaterial({
+      color: '#f4b71a',
+      transparent: true,
+      opacity: 0.35,
+    });
+    const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+    ring2.rotation.x = -Math.PI / 3;
+    ring2.rotation.z = Math.PI / 5;
+    scene.add(ring2);
+
+    // Orbiting dark orb
+    const orbGeo = new THREE.SphereGeometry(0.28, 32, 32);
+    const orbMat = new THREE.MeshStandardMaterial({
+      color: '#2c1c19',
+      metalness: 0.85,
+      roughness: 0.22,
+      emissive: '#87532c',
+      emissiveIntensity: 0.2,
+    });
+    const orb = new THREE.Mesh(orbGeo, orbMat);
+    orb.castShadow = true;
+    scene.add(orb);
+
+    // Small gold accent sphere
+    const accentGeo = new THREE.SphereGeometry(0.12, 24, 24);
+    const accentMat = new THREE.MeshStandardMaterial({
+      color: '#ffdf6e',
+      metalness: 1,
+      roughness: 0.05,
+      emissive: '#f4b71a',
+      emissiveIntensity: 0.4,
+    });
+    const accent = new THREE.Mesh(accentGeo, accentMat);
+    scene.add(accent);
+
+    // Floating particles
+    const partCount = 60;
+    const partGeo = new THREE.BufferGeometry();
+    const partPos = new Float32Array(partCount * 3);
+    for (let i = 0; i < partCount; i++) {
+      partPos[i * 3]     = (Math.random() - 0.5) * 9;
+      partPos[i * 3 + 1] = (Math.random() - 0.5) * 9;
+      partPos[i * 3 + 2] = (Math.random() - 0.5) * 5;
+    }
+    partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+    const partMat = new THREE.PointsMaterial({
+      color: '#f4b71a',
+      size: 0.035,
+      transparent: true,
+      opacity: 0.6,
+    });
+    const particles = new THREE.Points(partGeo, partMat);
+    scene.add(particles);
+
+    // Mouse tracking
+    const onMouse = (e) => {
+      const rect = el.getBoundingClientRect();
+      mouseRef.current = {
+        x: ((e.clientX - rect.left) / rect.width - 0.5) * 2,
+        y: -((e.clientY - rect.top) / rect.height - 0.5) * 2,
+      };
+    };
+    el.addEventListener('mousemove', onMouse);
+
+    // Resize observer
+    const ro = new ResizeObserver(() => {
+      camera.aspect = el.clientWidth / el.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(el.clientWidth, el.clientHeight);
+    });
+    ro.observe(el);
+
+    // Animation
+    let rafId;
+    const targetCam = { x: 0, y: 0 };
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+      const t = performance.now() * 0.001;
+
+      // Knot rotation
+      knot.rotation.x = t * 0.18;
+      knot.rotation.y = t * 0.26;
+      aura.rotation.x = t * 0.14;
+      aura.rotation.y = -t * 0.22;
+
+      // Arch rings counter-rotate
+      arch.rotation.z = t * 0.12;
+      ring2.rotation.y = -t * 0.09;
+      ring2.rotation.x = -Math.PI / 3 + t * 0.07;
+
+      // Orbiting orb
+      const orbR = 1.9;
+      orb.position.set(
+        Math.cos(t * 0.55) * orbR,
+        Math.sin(t * 0.55 * 0.7) * orbR * 0.55,
+        Math.sin(t * 0.55) * orbR * 0.4
+      );
+
+      // Accent orb small fast orbit
+      accent.position.set(
+        Math.cos(-t * 1.1 + 1.2) * 1.45,
+        Math.sin(-t * 1.1 + 1.2) * 1.45 * 0.6,
+        Math.cos(t * 0.7) * 0.5
+      );
+
+      // Gentle breathe scale
+      const breathe = 1 + Math.sin(t * 0.65) * 0.025;
+      knot.scale.setScalar(breathe);
+      aura.scale.setScalar(breathe * 1.01);
+
+      // Particles gentle drift
+      particles.rotation.y = t * 0.015;
+      particles.rotation.x = t * 0.008;
+
+      // Smooth camera parallax
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+      targetCam.x += (mx * 0.4 - targetCam.x) * 0.05;
+      targetCam.y += (my * 0.25 - targetCam.y) * 0.05;
+      camera.position.x = targetCam.x;
+      camera.position.y = targetCam.y;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      el.removeEventListener('mousemove', onMouse);
+      renderer.dispose();
+      if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return <div ref={mountRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }} />;
+}
+
 function Home({ navigate, openProject, settings, projects }) { return <>
   <section className="hero">
     <div className="hero-copy reveal"><p className="eyebrow"><i/> {settings.eyebrow}</p><h1>{settings.headline.split(' ').slice(0,-2).join(' ')} <em>{settings.headline.split(' ').slice(-2).join(' ')}</em></h1><p className="intro">{settings.intro}</p><button onClick={() => navigate('work')} className="button">Explore the work <ArrowDownRight size={18}/></button></div>
-    <div className="hero-art" aria-label="abstract golden digital sculpture"><div className="sun"/><div className="arch arch-one"/><div className="arch arch-two"/><div className="orb"/><p>HAZE / 01</p></div><div className="hero-foot"><span>Scroll to wander</span><span>( 01 - 04 )</span></div>
+    <div className="hero-art" aria-label="abstract golden digital sculpture"><HeroCanvas /><p className="hero-art-label">HAZE / 01</p></div><div className="hero-foot"><span>Scroll to wander</span><span>( 01 - 04 )</span></div>
   </section>
   <section className="marquee"><div>3D ART <b>✦</b> CHARACTER DESIGN <b>✦</b> DIGITAL WORLDS <b>✦</b> CREATIVE DIRECTION <b>✦</b> 3D ART <b>✦</b></div></section>
   <section className="work section"><div className="section-head reveal"><div><p className="eyebrow">01 / Selected work</p><h2>Small windows<br/>into <em>other places.</em></h2></div><p className="side-copy">A collection of independent explorations and commissioned work across art, culture, and imagination.</p></div><ProjectGrid projects={projects.filter(p => p.featured !== false).slice(0,4)} openProject={openProject}/><button onClick={() => navigate('work')} className="all-work">Explore all projects <ArrowUpRight size={16}/></button></section>
