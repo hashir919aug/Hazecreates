@@ -38,9 +38,22 @@ function App() {
     <nav className="nav site-nav">
       <button className="brand" onClick={() => navigate('home')}>haze<span>creates</span></button>
       <div className="navlinks">{navItems.map(([to, label]) => <button className={page === to ? 'active' : ''} onClick={() => navigate(to)} key={to}>{label}{to === 'contact' && <ArrowUpRight size={14}/>}</button>)}</div>
-      <button className="menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X/> : <Menu/>}</button>
+      <button className="menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X size={24}/> : <Menu size={24}/>}</button>
     </nav>
-    {menuOpen && <div className="mobile-nav">{navItems.map(([to,label]) => <button onClick={() => navigate(to)} key={to}>{label}</button>)}</div>}
+    {menuOpen && (
+      <div className="mobile-nav">
+        {navItems.map(([to, label]) => (
+          <button className={page === to ? 'active' : ''} onClick={() => navigate(to)} key={to}>
+            <span>{label}</span>
+            <ArrowUpRight size={20}/>
+          </button>
+        ))}
+        <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <p className="eyebrow"><i/> {content.settings.availability}</p>
+          <a href={`mailto:${content.settings.email}`} style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{content.settings.email}</a>
+        </div>
+      </div>
+    )}
     <div className="page-shell" key={page}>
       {page === 'home' && <Home navigate={navigate} openProject={setActiveProject} settings={content.settings} projects={content.projects}/>} 
       {page === 'work' && <Work openProject={setActiveProject} projects={content.projects} settings={content.settings}/>} 
